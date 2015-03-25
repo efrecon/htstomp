@@ -13,7 +13,7 @@
 
 set prg_args {
     -help     ""          "Print this help and exit"
-    -verbose  0           "Verbosity level \[0-5\]"
+    -verbose  3           "Verbosity level \[0-6\]"
     -port     61613       "Port to send to"
     -host     localhost   "Hostname of remote server"
     -user     ""          "Username to authenticate with"
@@ -75,6 +75,7 @@ proc ::getopt {_argv name {_var ""} {default ""}} {
 
 array set FWD {
     plugins   {}
+    loglevels {1 critical 2 error 3 warn 4 notice 5 info 6 debug}
 }
 foreach {arg val dsc} $prg_args {
     set FWD($arg) $val
@@ -132,10 +133,12 @@ proc ::forward { route prt sock url qry } {
     # it.
     set data [string trim [::minihttpd::data $prt $sock]]
     if { $data ne "" } {
+	$FWD(log)::debug "Incoming POST data on $prt with path $url"
 	# If we don't have a route specified, then we simply believe
 	# that the path of the HTTP request is the same than the STOMP
 	# topic and we forward all data on that topic.
 	if { $route eq "" || $route eq "-" } {
+	    $FWD(log)::debug "Passing data to STOMP server, topic: $url"
 	    ::stomp::client::send $FWD(client) $url \
 		-body $data \
 		-type text/plain
@@ -152,6 +155,9 @@ proc ::forward { route prt sock url qry } {
 		# Pass STOMP client identifier, requested URL and
 		# POSTed data to the plugin procedure.
 		if { [catch {$fname eval [list $proc $url $data]} err] } {
+		    $FWD(log)::warn "Error when calling back $proc: $err"
+		} else {
+		    $FWD(log)::debug "Successfully called $proc for $url: $err"
 		}
 	    }
 	}
@@ -180,6 +186,7 @@ proc ::forward { route prt sock url qry } {
 proc ::http:init { port } {
     global FWD
 
+    $FWD(log)::notice "Starting to serve HTTP request on port $port"
     set srv [::minihttpd::new "" $port]
     if { $srv < 0 } {
 	return -1
@@ -260,10 +267,12 @@ proc ::plugin:init { stomp } {
 	set plugin [file join $pdir $fname]
 
 	if { [file exists $plugin] && [lsearch $FWD(plugins) $fname] <0 } {
+	    $FWD(log)::info "Loading plugin at $plugin"
 	    set slave [::safe::interpCreate $fname]
 	    if { [catch {$slave invokehidden source $plugin} res] == 0 } {
 		lappend FWD(plugins) $slave
 		$slave alias stomp ::stomp::client::send $stomp
+		$slave alias debug $FWD(log)::debug
 	    }
 	}
     }
@@ -287,8 +296,26 @@ proc ::tlssocket { args } {
     return -code error $sock
 }
 
-# Initialise STOMP connection and verbosity.
+# Fix verbosity and logging for all (sub-)modules
+if { ![string is integer $FWD(-verbose)] } {
+    foreach {i s} $FWD(loglevels) {
+	if { [string match -nocase $FWD(-verbose) $s] } {
+	    set FWD(-verbose) $i
+	    break
+	}
+    }
+}
+package require logger
+set FWD(log) [::logger::init  $appname]
+array set LVL $FWD(loglevels)
+if { [info exists LVL($FWD(-verbose))] } {
+    $FWD(log)::setlevel $LVL($FWD(-verbose))
+    ::minihttpd::loglevel $LVL($FWD(-verbose))
+}
 ::stomp::verbosity $FWD(-verbose)
+
+# Initialise STOMP connection and verbosity.
+$FWD(log)::notice "Connecting to STOMP server at $FWD(-host):$FWD(-port)"
 if { [string is true $FWD(-tls)] } {
     package require tls
     set FWD(client) [::stomp::client::connect \

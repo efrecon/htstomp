@@ -24,4 +24,4 @@ EXPOSE 8080
 # Export the plugin directory so it gets easy to test new plugins.
 VOLUME /opt/htstomp/exts
 
-ENTRYPOINT ["tclsh8.6", "/opt/htstomp/htstomp.tcl", "-v", "3"]
+ENTRYPOINT ["tclsh8.6", "/opt/htstomp/htstomp.tcl", "-verbose", "notice"]
