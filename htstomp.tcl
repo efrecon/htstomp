@@ -132,8 +132,12 @@ proc ::forward { route prt sock url qry } {
     # We won't do anything if no data is present once we've trimmed
     # it.
     set data [string trim [::minihttpd::data $prt $sock]]
+    if { $data eq "" } {
+	set data $qry
+    }
+
     if { $data ne "" } {
-	$FWD(log)::debug "Incoming POST data on $prt with path $url"
+	$FWD(log)::debug "Incoming data on $prt with path $url"
 	# If we don't have a route specified, then we simply believe
 	# that the path of the HTTP request is the same than the STOMP
 	# topic and we forward all data on that topic.
