@@ -323,9 +323,9 @@ if { [info exists LVL($FWD(-verbose))] } {
 # Recap for arguments
 set argsout "Parsed following arguments:"
 foreach k [array names FWD -*] {
-        append argsout "\n$k = $FWD($k)"
+        append argsout "\n\t$k = $FWD($k)"
 }
-$FWD(log)::debug $argsout
+$FWD(log)::info $argsout
 
 # Initialise STOMP connection and verbosity.
 $FWD(log)::notice "Connecting to STOMP server at $FWD(-host):$FWD(-port)"
