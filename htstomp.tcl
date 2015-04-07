@@ -158,14 +158,16 @@ proc ::forward { route prt sock url qry } {
 		     && [interp exists $fname] } {
 		# Pass STOMP client identifier, requested URL and
 		# POSTed data to the plugin procedure.
-		if { [catch {$fname eval [list $proc $url $data]} err] } {
-		    $FWD(log)::warn "Error when calling back $proc: $err"
+		if { [catch {$fname eval [list $proc $url $data]} res] } {
+		    $FWD(log)::warn "Error when calling back $proc: $res"
 		} else {
-		    $FWD(log)::debug "Successfully called $proc for $url: $err"
+		    $FWD(log)::debug "Successfully called $proc for $url: $res"
+                    return $res;    # Matched, return result
 		}
 	    }
 	}
     }
+    return ""
 }
 
 
@@ -195,7 +197,7 @@ proc ::http:init { port } {
     if { $srv < 0 } {
 	return -1
     }
-    
+
     foreach { path route } $FWD(-routes) {
 	::minihttpd::handler $srv $path [list ::forward $route] "text/plain"
     }
@@ -222,7 +224,7 @@ proc ::htinit {} {
 
     foreach p $FWD(-http) {
 	set srv -1
-	
+
 	if { [string is integer -strict $p] } {
 	    set srv [::http:init $p]
 	} elseif { [string first ":" $p] >= 0 } {
@@ -233,7 +235,7 @@ proc ::htinit {} {
 		}
 	    }
 	}
-	
+
 	if { $srv > 0 } {
 	    lappend FWD(servers) $srv
 	}
