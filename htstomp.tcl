@@ -156,9 +156,13 @@ proc ::forward { route prt sock url qry } {
 	    foreach {proc fname} [split $route "@"] break
 	    if { [lsearch $FWD(plugins) $fname] >= 0 \
 		     && [interp exists $fname] } {
+		# Isolate procedure name from possible arguments.
+		set call [split $proc !]
+		set proc [lindex $call 0]
+		set args [lrange $call 1 end]
 		# Pass STOMP client identifier, requested URL and
 		# POSTed data to the plugin procedure.
-		if { [catch {$fname eval [list $proc $url $data]} res] } {
+		if { [catch {$fname eval [linsert $args 0 $proc $url $data]} res] } {
 		    $FWD(log)::warn "Error when calling back $proc: $res"
 		} else {
 		    $FWD(log)::debug "Successfully called $proc for $url: $res"
